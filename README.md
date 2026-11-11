@@ -8,6 +8,7 @@ Petite application web qui vérifie si les vaccinations **grippe** et **rhinopne
 - Chaque intervalle est contrôlé : conforme, trop tôt ou trop tard (avec le nombre de jours d'écart).
 - En cas d'écart, l'application cherche une **reprise du protocole** : la première injection à partir de laquelle toute la suite est conforme compte comme nouvelle première injection, et les injections précédentes sont barrées.
 - La prochaine échéance est indiquée.
+- La dernière injection doit dater de plus de 7 jours : le cheval est en règle à partir du 8e jour qui suit.
 - Les dates sont enregistrées uniquement dans le navigateur (`localStorage`) ; rien n'est envoyé sur un serveur.
 
 ## Protocoles appliqués

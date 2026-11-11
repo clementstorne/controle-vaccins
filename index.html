@@ -103,9 +103,9 @@ tbody th { font-weight: 600 }
     <ul class="notes">
       <li>Les bornes sont incluses : une injection au 21<sup>e</sup> ou au 60<sup>e</sup> jour est conforme.</li>
       <li>« 1 an maximum » va jusqu'à la même date l'année suivante ; « 5 à 6 mois » se compte en mois calendaires.</li>
+      <li>Délai de 7 jours : la dernière injection doit dater de plus de 7 jours. Le cheval est en règle à partir du 8<sup>e</sup> jour qui suit l'injection (injection le 1<sup>er</sup> du mois, en règle le 9).</li>
       <li>Une primo-vaccination commencée le 01/01/2024 suit le protocole le plus récent.</li>
       <li>Reprise : en cas d'écart, l'application cherche la première injection à partir de laquelle toute la suite est conforme. Elle compte comme première injection, son protocole dépend de sa date, et les injections précédentes sont barrées.</li>
-      <li>Rhinopneumonie : la limite « 1/01/2014 » du document est corrigée en 1/01/2024.</li>
     </ul>
   </section>
 </div>
@@ -219,12 +219,15 @@ function evaluate(key, dates, todayIso) {
   if (lastFilled >= 0 && !gaps) {
     const n = lastFilled + 1 - start, prev = parse(clean[lastFilled]), r = ruleFor(p, n), [min, max] = windowOf(prev, r);
     out.next = { label: label(p, n), min, max, rule: r, overdue: today > max ? diff(max, today) : 0, left: diff(today, max) };
+    const from = addDays(prev, 8);
+    if (today < from) out.wait = { last: prev, from, left: diff(today, from) };
   }
   if (lastFilled < 0) out.status = ["none", "À compléter"];
   else if (bad) out.status = ["ko", "Non conforme"];
   else if (gaps) out.status = ["warn", "À compléter"];
   else if (out.next.overdue) out.status = ["ko", "Échéance dépassée"];
   else if (start && lastFilled === start) out.status = ["warn", "Reprise en cours"];
+  else if (out.wait) out.status = ["warn", "Délai de 7 jours"];
   else if (out.next.left <= 30) out.status = ["warn", "Échéance proche"];
   else out.status = ["ok", start ? "Conforme après reprise" : "Conforme"];
   return out;
@@ -266,7 +269,8 @@ function build(key) {
       ${i >= 2 ? `<button type="button" class="del" data-del="${i}" data-key="${key}" aria-label="Retirer cette ligne" title="Retirer cette ligne">×</button>` : "<span></span>"}
       <div class="res" id="${key}-r${i}"></div></div>`).join("")}</div>
     <button type="button" class="add" data-add="${key}">Ajouter une injection</button>
-    <p class="next" id="${key}-next"></p>`;
+    <p class="next" id="${key}-next"></p>
+    <p class="next s-warn" id="${key}-wait"></p>`;
   update(key);
 }
 function update(key) {
@@ -292,6 +296,9 @@ function update(key) {
     next.textContent = n.overdue ? `${n.label} : échéance dépassée de ${n.overdue} j (limite ${fr(n.max)}). La prochaine injection comptera comme première injection d'une reprise.`
       : `${n.label} : ${when}`;
   }
+  const wait = document.getElementById(`${key}-wait`), w = ev.wait;
+  wait.hidden = !w;
+  if (w) wait.textContent = `Dernière injection le ${fr(w.last)} : moins de 7 jours. Cheval en règle à partir du ${fr(w.from)}${w.left > 0 ? ` (dans ${w.left} j)` : ""}.`;
 }
 
 document.querySelector(".pages").addEventListener("input", e => {
