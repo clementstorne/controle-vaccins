@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Contrôle vaccins cheval</title>
+<meta name="description" content="Vérifie les dates de vaccination grippe et rhinopneumonie d'un cheval selon le protocole applicable et indique la prochaine échéance.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='23' rx='3' fill='%230d5a66'/%3E%3Crect x='3' y='6' width='26' height='7' rx='3' fill='%2309434c'/%3E%3Cpath d='M10 20l4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: two facing pages of a vaccination booklet, one per disease, with the rules printed underneath. */
+:root {
+  --bg: #e9eef0; --sheet: #fbfcfc; --ink: #15262c; --muted: #51666e; --line: #c9d5d9; --accent: #0d5a66; --accent-soft: #d8e8ea;
+  --ok: #17693f; --ok-soft: #dcefe3; --ko: #b02a22; --ko-soft: #f8e0dd; --warn: #8a5a00; --warn-soft: #f8ebcb;
+  --display: "Alegreya", Georgia, serif; --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #0f181b; --sheet: #172328; --ink: #e6eef0; --muted: #9db0b7; --line: #2f4148; --accent: #79c6d1; --accent-soft: #1d3a40;
+  --ok: #7fd3a3; --ok-soft: #173527; --ko: #f4a097; --ko-soft: #442120; --warn: #eec667; --warn-soft: #3d3014; color-scheme: dark } }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.45 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 44px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 24px }
+h1 { font: 700 2.1rem/1.1 var(--display); margin: 0; text-wrap: balance }
+.sub { margin: 4px 0 0; color: var(--muted) }
+.today { color: var(--muted); font-variant-numeric: tabular-nums }
+.notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; background: var(--accent-soft); padding: 10px 14px; border-radius: 6px }
+.notice p { margin: 0; min-width: 0 }
+button { font: 600 .95rem var(--body); color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: 5px; padding: 6px 12px; cursor: pointer }
+button:hover { background: var(--accent-soft) }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.pages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start }
+.card { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 14px; min-width: 0 }
+.head { display: flex; justify-content: space-between; align-items: start; gap: 12px }
+.head > div { min-width: 0 }
+h2 { font: 700 1.5rem/1.15 var(--display); margin: 0 }
+.proto { margin: 2px 0 0; color: var(--muted); font-size: .95rem }
+.pill { flex: none; font-weight: 700; font-size: .9rem; padding: 4px 10px; border-radius: 4px; white-space: nowrap }
+.s-ok { color: var(--ok); background: var(--ok-soft) } .s-ko { color: var(--ko); background: var(--ko-soft) }
+.s-warn { color: var(--warn); background: var(--warn-soft) } .s-none { color: var(--muted); background: var(--bg) }
+.rows { display: grid; gap: 0 }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 158px 30px; gap: 4px 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line) }
+.row label { font-weight: 600 }
+.row input { font: 500 1rem var(--body); font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px; width: 100%; min-width: 0 }
+.del { padding: 0; width: 28px; height: 28px; border-color: transparent; color: var(--muted); font-size: 1.15rem; line-height: 1 }
+.res { grid-column: 1 / -1; font-size: .93rem; color: var(--muted); font-variant-numeric: tabular-nums }
+.res b { font-weight: 700 } .res.ok b { color: var(--ok) } .res.ko b { color: var(--ko) } .res.warn b { color: var(--warn) } .res.re b { color: var(--accent) }
+.dt { position: relative; display: block; min-width: 0 }
+.row.struck label { text-decoration: line-through; color: var(--muted); font-weight: 500 }
+.row.struck input { color: var(--muted) }
+.row.struck .dt::after { content: ""; position: absolute; left: 3px; right: 3px; top: 50%; border-top: 2px solid var(--ko); pointer-events: none }
+.row.restart { box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px }
+.add { justify-self: start }
+.next { padding: 10px 12px; border-radius: 5px; font-variant-numeric: tabular-nums; margin: 0 }
+.rules { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 12px; min-width: 0 }
+.rules h2 { font-size: 1.25rem }
+.scroll { overflow-x: auto }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 7px 10px 7px 0; border-top: 1px solid var(--line); vertical-align: top }
+thead th { border-top: 0; font-size: .9rem; color: var(--muted) }
+tbody th { font-weight: 600 }
+.notes { margin: 0; padding-left: 18px; color: var(--muted); font-size: .94rem; display: grid; gap: 3px; max-width: 80ch }
+@media (max-width: 800px) { .pages { grid-template-columns: minmax(0, 1fr) } h1 { font-size: 1.8rem } }
+@media (max-width: 460px) { .row { grid-template-columns: minmax(0, 1fr) 30px } .row label { grid-column: 1 / -1 } .card { padding: 14px } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Contrôle des vaccins du cheval</h1>
+      <p class="sub">Saisir les dates d'injection : le protocole se choisit d'après la première injection.</p>
+    </div>
+    <div class="today" id="today"></div>
+  </header>
+
+  <div class="notice" id="notice">
+    <p id="noticeText"></p>
+    <button type="button" id="clear">Effacer les dates</button>
+  </div>
+
+  <div class="pages">
+    <section class="card" id="card-grippe"></section>
+    <section class="card" id="card-rhino"></section>
+  </div>
+
+  <section class="rules">
+    <h2>Règles appliquées</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Première injection</th><th>1<sup>re</sup> → 2<sup>e</sup> injection</th><th>2<sup>e</sup> injection → premier rappel</th><th>Entre chaque rappel</th></tr></thead>
+      <tbody>
+        <tr><th>Grippe, avant le 01/01/2013</th><td>21 à 92 jours</td><td>1 an maximum (rappel annuel)</td><td>1 an maximum</td></tr>
+        <tr><th>Grippe, du 01/01/2013 au 31/12/2023</th><td>21 à 92 jours</td><td>5 à 6 mois</td><td>1 an maximum</td></tr>
+        <tr><th>Grippe, à partir du 01/01/2024</th><td>21 à 60 jours</td><td>120 à 180 jours</td><td>1 an maximum</td></tr>
+        <tr><th>Rhinopneumonie, avant le 01/01/2024</th><td>21 à 92 jours</td><td>1 an maximum (rappel annuel)</td><td>1 an maximum</td></tr>
+        <tr><th>Rhinopneumonie, à partir du 01/01/2024</th><td>21 à 60 jours</td><td>120 à 180 jours</td><td>1 an maximum</td></tr>
+      </tbody>
+    </table></div>
+    <ul class="notes">
+      <li>Les bornes sont incluses : une injection au 21<sup>e</sup> ou au 60<sup>e</sup> jour est conforme.</li>
+      <li>« 1 an maximum » va jusqu'à la même date l'année suivante ; « 5 à 6 mois » se compte en mois calendaires.</li>
+      <li>Une primo-vaccination commencée le 01/01/2024 suit le protocole le plus récent.</li>
+      <li>Reprise : en cas d'écart, l'application cherche la première injection à partir de laquelle toute la suite est conforme. Elle compte comme première injection, son protocole dépend de sa date, et les injections précédentes sont barrées.</li>
+      <li>Rhinopneumonie : la limite « 1/01/2014 » du document est corrigée en 1/01/2024.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+/*LOGIC-START*/
+const pad = n => String(n).padStart(2, "0");
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const iso = d => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+const fr = d => `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+const addDays = (d, n) => new Date(d.getTime() + n * 864e5);
+const addMonths = (d, n) => {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
+  const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  t.setUTCDate(Math.min(d.getUTCDate(), last));
+  return t;
+};
+const diff = (a, b) => Math.round((b - a) / 864e5);
+const valid = s => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && +s.slice(0, 4) >= 1950;
+
+const DAYS = (min, max) => ({ kind: "days", min, max, text: `${min} à ${max} jours` });
+const MONTHS = (min, max) => ({ kind: "months", min, max, text: `${min} à ${max} mois` });
+const YEAR = { kind: "year", text: "1 an maximum" };
+
+const P_OLD = { steps: [DAYS(21, 92)], first: "Rappel annuel" };
+const P_MID = { steps: [DAYS(21, 92), MONTHS(5, 6)], first: "Premier rappel" };
+const P_NEW = { steps: [DAYS(21, 60), DAYS(120, 180)], first: "Premier rappel" };
+const DISEASES = {
+  grippe: { name: "Grippe", pick: s => s < "2013-01-01" ? { ...P_OLD, name: "primo-vaccination avant le 01/01/2013" }
+    : s < "2024-01-01" ? { ...P_MID, name: "primo-vaccination du 01/01/2013 au 31/12/2023" }
+    : { ...P_NEW, name: "primo-vaccination à partir du 01/01/2024" } },
+  rhino: { name: "Rhinopneumonie", pick: s => s < "2024-01-01" ? { ...P_OLD, name: "primo-vaccination avant le 01/01/2024" }
+    : { ...P_NEW, name: "primo-vaccination à partir du 01/01/2024" } }
+};
+
+/* Rule for the injection at index i (i >= 1). */
+const ruleFor = (p, i) => p.steps[i - 1] || YEAR;
+function windowOf(prev, r) {
+  if (r.kind === "days") return [addDays(prev, r.min), addDays(prev, r.max)];
+  if (r.kind === "months") return [addMonths(prev, r.min), addMonths(prev, r.max)];
+  return [addDays(prev, 1), addMonths(prev, 12)];
+}
+function label(p, i) {
+  if (i === 0) return "Première injection";
+  if (i === 1) return "Deuxième injection";
+  if (!p) return "Rappel";
+  return i === 2 ? p.first : "Rappel annuel";
+}
+/* Checks injection i against the one before it, in a protocol that began at index start. */
+function stepCheck(clean, p, start, i) {
+  const d = parse(clean[i]), prev = parse(clean[i - 1]), r = ruleFor(p, i - start), [min, max] = windowOf(prev, r), n = diff(prev, d);
+  const span = `${n} j après l'injection précédente, attendu ${r.text}`;
+  if (d <= prev) return { state: "ko", verdict: "Date incohérente", text: "elle doit suivre l'injection précédente", fatal: true };
+  if (d < min) return { state: "ko", verdict: `Trop tôt de ${diff(d, min)} j`, text: span };
+  if (d > max) return { state: "ko", verdict: `Trop tard de ${diff(max, d)} j`, text: span };
+  return { state: "ok", verdict: "Conforme", text: span };
+}
+/* Earliest injection from which every later injection conforms; 0 when no restart is needed. */
+function findRestart(key, clean, lastFilled) {
+  for (let j = 1; j <= lastFilled; j++) {
+    const p = DISEASES[key].pick(clean[j]);
+    let ok = true;
+    for (let i = j + 1; i <= lastFilled && ok; i++) ok = stepCheck(clean, p, j, i).state === "ok";
+    if (ok) return j;
+  }
+  return 0;
+}
+function evaluate(key, dates, todayIso) {
+  const today = parse(todayIso), out = { rows: [], protocol: null, next: null, start: 0, restartDate: null };
+  const clean = dates.map(s => valid(s) ? s : "");
+  const lastFilled = clean.reduce((a, s, i) => s ? i : a, -1);
+  const gaps = clean.slice(0, Math.max(lastFilled, 0)).some(s => !s);
+  const p0 = clean[0] ? DISEASES[key].pick(clean[0]) : null;
+  let firstBreak = -1, fatal = false;
+  if (!gaps) for (let i = 1; i <= lastFilled; i++) {
+    const c = stepCheck(clean, p0, 0, i);
+    if (c.fatal) fatal = true;
+    if (c.state !== "ok" && firstBreak < 0) firstBreak = i;
+  }
+  const start = firstBreak > 0 && !fatal ? findRestart(key, clean, lastFilled) : 0;
+  const p = clean[start] ? DISEASES[key].pick(clean[start]) : null;
+  out.protocol = p; out.start = start;
+  if (start) out.restartDate = fr(parse(clean[start]));
+  const breakCheck = firstBreak > 0 && start ? stepCheck(clean, p0, 0, firstBreak) : null;
+  const reason = breakCheck ? `${breakCheck.verdict.toLowerCase()}, ${breakCheck.text}` : "";
+  let bad = 0;
+  clean.forEach((s, i) => {
+    const row = { label: "", state: "", text: "", struck: false };
+    out.rows.push(row);
+    if (i < start) {
+      row.struck = true; row.state = "struck"; row.verdict = "Non comptée";
+      row.label = i <= firstBreak ? label(p0, i) : "Injection";
+      if (i === firstBreak) row.text = reason;
+      return;
+    }
+    row.label = i === start && start ? "Première injection (reprise)" : label(p, i - start);
+    if (!s) {
+      if (i < lastFilled) { row.state = "ko"; row.verdict = "Date manquante"; }
+      return;
+    }
+    if (i === start) {
+      if (start) { row.state = "re"; row.verdict = "Reprise du protocole"; row.text = firstBreak === start ? reason : "cette injection repart comme première injection"; }
+      else { row.state = "ok"; row.verdict = "Date de référence"; }
+      return;
+    }
+    if (!p || !clean[i - 1]) { row.state = "warn"; row.verdict = "Non vérifiable"; row.text = "la date précédente manque"; return; }
+    const c = stepCheck(clean, p, start, i);
+    Object.assign(row, c);
+    if (c.state === "ko") bad++;
+  });
+  if (lastFilled >= 0 && !gaps) {
+    const n = lastFilled + 1 - start, prev = parse(clean[lastFilled]), r = ruleFor(p, n), [min, max] = windowOf(prev, r);
+    out.next = { label: label(p, n), min, max, rule: r, overdue: today > max ? diff(max, today) : 0, left: diff(today, max) };
+  }
+  if (lastFilled < 0) out.status = ["none", "À compléter"];
+  else if (bad) out.status = ["ko", "Non conforme"];
+  else if (gaps) out.status = ["warn", "À compléter"];
+  else if (out.next.overdue) out.status = ["ko", "Échéance dépassée"];
+  else if (start && lastFilled === start) out.status = ["warn", "Reprise en cours"];
+  else if (out.next.left <= 30) out.status = ["warn", "Échéance proche"];
+  else out.status = ["ok", start ? "Conforme après reprise" : "Conforme"];
+  return out;
+}
+/*LOGIC-END*/
+
+const KEY = "controle-vaccins-v1";
+const EXAMPLE = {
+  grippe: ["2024-03-15", "2024-04-20", "2024-09-10", "2025-09-02", "2026-08-28"],
+  rhino: ["2024-03-15", "2024-04-20", "2024-09-10", "2025-09-15", "2025-10-15", "2026-03-05"]
+};
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+document.getElementById("today").textContent = `Aujourd'hui : ${fr(parse(TODAY))}`;
+
+let state = { example: true, grippe: [...EXAMPLE.grippe], rhino: [...EXAMPLE.rhino] };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && Array.isArray(saved.grippe) && Array.isArray(saved.rhino)) state = saved;
+} catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+function touched() {
+  if (state.example) { state.example = false; }
+  save(); notice();
+}
+function notice() {
+  document.getElementById("noticeText").textContent = state.example
+    ? "Dates d'exemple : un cheval fictif, avec un rappel de rhinopneumonie en retard suivi d'une reprise du protocole. Effacer pour saisir les vôtres."
+    : "Les dates restent enregistrées dans ce navigateur uniquement.";
+}
+
+function build(key) {
+  const card = document.getElementById("card-" + key);
+  card.innerHTML = `<div class="head"><div><h2>${DISEASES[key].name}</h2><p class="proto" id="${key}-proto"></p></div><span class="pill" id="${key}-pill"></span></div>
+    <div class="rows">${state[key].map((v, i) => `<div class="row" id="${key}-row${i}">
+      <label for="${key}-d${i}" id="${key}-l${i}"></label>
+      <span class="dt"><input type="date" id="${key}-d${i}" value="${v}" data-key="${key}" data-i="${i}"></span>
+      ${i >= 2 ? `<button type="button" class="del" data-del="${i}" data-key="${key}" aria-label="Retirer cette ligne" title="Retirer cette ligne">×</button>` : "<span></span>"}
+      <div class="res" id="${key}-r${i}"></div></div>`).join("")}</div>
+    <button type="button" class="add" data-add="${key}">Ajouter une injection</button>
+    <p class="next" id="${key}-next"></p>`;
+  update(key);
+}
+function update(key) {
+  const ev = evaluate(key, state[key], TODAY);
+  document.getElementById(`${key}-proto`).textContent = ev.protocol ? `Protocole : ${ev.protocol.name}${ev.restartDate ? `, repris le ${ev.restartDate}` : ""}` : "Protocole : saisir la première injection";
+  const pill = document.getElementById(`${key}-pill`);
+  pill.className = "pill s-" + ev.status[0]; pill.textContent = ev.status[1];
+  ev.rows.forEach((r, i) => {
+    document.getElementById(`${key}-l${i}`).textContent = r.label;
+    const line = document.getElementById(`${key}-row${i}`);
+    line.classList.toggle("struck", r.struck);
+    line.classList.toggle("restart", r.state === "re");
+    const el = document.getElementById(`${key}-r${i}`);
+    el.className = "res " + r.state; el.textContent = "";
+    if (r.verdict) { const b = document.createElement("b"); b.textContent = r.verdict; el.append(b, r.text ? ` : ${r.text}` : ""); }
+    el.hidden = !r.verdict;
+  });
+  const next = document.getElementById(`${key}-next`), n = ev.next;
+  next.hidden = !n;
+  if (n) {
+    const when = n.rule.kind === "year" ? `au plus tard le ${fr(n.max)}` : `du ${fr(n.min)} au ${fr(n.max)}`;
+    next.className = "next s-" + (n.overdue ? "ko" : n.left <= 30 ? "warn" : "none");
+    next.textContent = n.overdue ? `${n.label} : échéance dépassée de ${n.overdue} j (limite ${fr(n.max)}). La prochaine injection comptera comme première injection d'une reprise.`
+      : `${n.label} : ${when}`;
+  }
+}
+
+document.querySelector(".pages").addEventListener("input", e => {
+  const t = e.target; if (!t.dataset.key) return;
+  state[t.dataset.key][+t.dataset.i] = t.value;
+  touched(); update(t.dataset.key);
+});
+document.querySelector(".pages").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.add) {
+    const k = b.dataset.add; state[k].push(""); touched(); build(k);
+    document.getElementById(`${k}-d${state[k].length - 1}`).focus();
+  } else if (b.dataset.del) {
+    const k = b.dataset.key; state[k].splice(+b.dataset.del, 1); touched(); build(k);
+  }
+});
+const clearBtn = document.getElementById("clear");
+let armed = false;
+clearBtn.addEventListener("click", () => {
+  if (!state.example && !armed && (state.grippe.some(Boolean) || state.rhino.some(Boolean))) {
+    armed = true; clearBtn.textContent = "Confirmer l'effacement"; return;
+  }
+  armed = false; clearBtn.textContent = "Effacer les dates";
+  state = { example: false, grippe: ["", "", ""], rhino: ["", "", ""] };
+  save(); notice(); build("grippe"); build("rhino");
+});
+clearBtn.addEventListener("blur", () => { armed = false; clearBtn.textContent = "Effacer les dates"; });
+
+notice(); build("grippe"); build("rhino");
+</script>
+</body>
+</html>
