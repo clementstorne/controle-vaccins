@@ -104,7 +104,7 @@ tbody th { font-weight: 600 }
     <ul class="notes">
       <li>La date de primo-vaccination est celle de la 2<sup>e</sup> injection : c'est elle qui fixe le protocole.</li>
       <li>Les bornes sont incluses. 1 mois équivaut à 30 jours.</li>
-      <li>Rappels : tolérance de +1 jour. Pour un rappel à 1 an, un cheval vacciné le 10/01 doit l'être de nouveau au plus tard le 10/01 de l'année suivante, 11/01 avec la tolérance.</li>
+      <li>Rappels : tolérance de +1 jour. Pour un rappel à 1 an, un cheval vacciné le 10/01 de l'année N doit l'être de nouveau au plus tard le 10/01 de l'année N+1. Pour le premier rappel, la limite de 180 jours passe à 181 jours.</li>
       <li>Le cheval peut concourir à partir du 8<sup>e</sup> jour suivant la 2<sup>e</sup> injection de la primo-vaccination ou une injection de rappel (injection le 1<sup>er</sup> du mois, en règle le 9).</li>
       <li>Une primo-vaccination incorrecte équivaut à une absence de vaccination. En cas d'écart, l'application cherche la première injection à partir de laquelle toute la suite est conforme : elle compte comme nouvelle première injection et les injections précédentes sont barrées.</li>
       <li>Source : <a href="https://www.ffe.com/media/13278/download">Règlement des compétitions FFE, dispositions générales</a> (version juillet 2026), articles 1.6-3 et 1.8.B.3. Cet outil est une aide : le règlement fait foi.</li>
@@ -144,7 +144,9 @@ const DISEASES = {
 
 /* Rule for the injection at index i (i >= 1) of a protocol; rappels (i >= 2) get the +1 day tolerance. */
 const ruleFor = (p, i) => {
-  const r = p.steps[i - 1] || YEAR, tol = i >= 2 ? 1 : 0;
+  const r = p.steps[i - 1] || YEAR;
+  if (r.kind === "year") return { ...r, tol: 0, text: "1 an maximum (au plus tard à la même date l'année suivante)" };
+  const tol = i >= 2 ? 1 : 0;
   return { ...r, tol, text: r.text + (tol ? " (+1 j de tolérance)" : "") };
 };
 function windowOf(prev, r) {
