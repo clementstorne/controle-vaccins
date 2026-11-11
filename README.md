@@ -9,7 +9,7 @@ Petite application web qui vérifie si les vaccinations **grippe** et **rhinopne
 - En cas d'écart, l'application cherche une **reprise du protocole** : la première injection à partir de laquelle toute la suite est conforme compte comme nouvelle première injection, et les injections précédentes sont barrées.
 - La prochaine échéance est indiquée.
 - Le cheval peut concourir à partir du 8e jour suivant la 2e injection de la primo-vaccination ou une injection de rappel.
-- Rappels : tolérance de +1 jour. 1 mois équivaut à 30 jours.
+- 1 mois équivaut à 30 jours. Rappel à 1 an : au plus tard à la même date l'année suivante.
 - Les dates sont enregistrées uniquement dans le navigateur (`localStorage`) ; rien n'est envoyé sur un serveur.
 
 ## Protocoles appliqués

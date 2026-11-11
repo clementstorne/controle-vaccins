@@ -104,7 +104,7 @@ tbody th { font-weight: 600 }
     <ul class="notes">
       <li>La date de primo-vaccination est celle de la 2<sup>e</sup> injection : c'est elle qui fixe le protocole.</li>
       <li>Les bornes sont incluses. 1 mois équivaut à 30 jours.</li>
-      <li>Rappels : tolérance de +1 jour. Pour un rappel à 1 an, un cheval vacciné le 10/01 de l'année N doit l'être de nouveau au plus tard le 10/01 de l'année N+1. Pour le premier rappel, la limite de 180 jours passe à 181 jours.</li>
+      <li>Rappel à 1 an : un cheval vacciné le 10/01 de l'année N doit l'être de nouveau au plus tard le 10/01 de l'année N+1, sans recul d'un jour chaque année.</li>
       <li>Le cheval peut concourir à partir du 8<sup>e</sup> jour suivant la 2<sup>e</sup> injection de la primo-vaccination ou une injection de rappel (injection le 1<sup>er</sup> du mois, en règle le 9).</li>
       <li>Une primo-vaccination incorrecte équivaut à une absence de vaccination. En cas d'écart, l'application cherche la première injection à partir de laquelle toute la suite est conforme : elle compte comme nouvelle première injection et les injections précédentes sont barrées.</li>
       <li>Source : <a href="https://www.ffe.com/media/13278/download">Règlement des compétitions FFE, dispositions générales</a> (version juillet 2026), articles 1.6-3 et 1.8.B.3. Cet outil est une aide : le règlement fait foi.</li>
@@ -142,16 +142,13 @@ const DISEASES = {
     : { ...P_NEW, name: "primo-vaccination (2e injection) à partir du 01/01/2024" } }
 };
 
-/* Rule for the injection at index i (i >= 1) of a protocol; rappels (i >= 2) get the +1 day tolerance. */
+/* Rule for the injection at index i (i >= 1) of a protocol. */
 const ruleFor = (p, i) => {
   const r = p.steps[i - 1] || YEAR;
-  if (r.kind === "year") return { ...r, tol: 0, text: "1 an maximum (au plus tard à la même date l'année suivante)" };
-  const tol = i >= 2 ? 1 : 0;
-  return { ...r, tol, text: r.text + (tol ? " (+1 j de tolérance)" : "") };
+  return r.kind === "year" ? { ...r, text: "1 an maximum (au plus tard à la même date l'année suivante)" } : r;
 };
 function windowOf(prev, r) {
-  const [min, max] = r.kind === "days" ? [addDays(prev, r.min), addDays(prev, r.max)] : [addDays(prev, 1), addMonths(prev, 12)];
-  return [min, addDays(max, r.tol || 0)];
+  return r.kind === "days" ? [addDays(prev, r.min), addDays(prev, r.max)] : [addDays(prev, 1), addMonths(prev, 12)];
 }
 /* Protocol of a primo-vaccination starting at index j: chosen by the date of its 2nd injection
    (date de primo-vaccination). Without a 2nd injection yet, the earliest possible one stands in. */
@@ -288,8 +285,7 @@ function update(key) {
   const next = document.getElementById(`${key}-next`), n = ev.next;
   next.hidden = !n;
   if (n) {
-    const tol = n.rule.tol ? ` (${fr(n.max)} avec la tolérance)` : "", end = addDays(n.max, -(n.rule.tol || 0));
-    const when = (n.rule.kind === "year" ? `au plus tard le ${fr(end)}` : `du ${fr(n.min)} au ${fr(end)}`) + tol;
+    const when = n.rule.kind === "year" ? `au plus tard le ${fr(n.max)}` : `du ${fr(n.min)} au ${fr(n.max)}`;
     next.className = "next s-" + (n.overdue ? "ko" : n.left <= 30 ? "warn" : "none");
     next.textContent = n.overdue ? `${n.label} : échéance dépassée de ${n.overdue} j (limite ${fr(n.max)}). La prochaine injection comptera comme première injection d'une reprise.`
       : `${n.label} : ${when}`;
